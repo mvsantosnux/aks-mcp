@@ -1,4 +1,4 @@
-﻿# AKS-MCP
+# AKS-MCP
 
 The AKS-MCP is a Model Context Protocol (MCP) server that enables AI assistants
 to interact with Azure Kubernetes Service (AKS) clusters. It serves as a bridge
@@ -700,17 +700,31 @@ To opt out, set the environment variable `AKS_MCP_COLLECT_TELEMETRY=false`.
 
 ## Contributing
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+We welcome contributions to AKS-MCP! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+**📖 [Read our detailed Contributing Guide](CONTRIBUTING.md)** for comprehensive information on:
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+- Setting up your development environment
+- Running AKS-MCP locally and testing with AI agents
+- Understanding the codebase architecture
+- Adding new MCP tools and features
+- Testing guidelines and best practices
+- Submitting pull requests
+
+### Quick Start for Contributors
+
+1. **Prerequisites**: Go ≥ 1.24.x, Azure CLI, Git
+2. **Setup**: Fork the repo, clone locally, run `make deps && make build`
+3. **Test**: Run `make test` and `make check`
+4. **Develop**: Follow the component-based architecture in [CONTRIBUTING.md](CONTRIBUTING.md)
+
+### Contributor License Agreement
+
+Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+
+When you submit a pull request, a CLA bot will automatically determine whether you need to provide a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions provided by the bot. You will only need to do this once across all repos using our CLA.
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 ## Trademarks
 
