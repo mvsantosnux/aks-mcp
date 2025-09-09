@@ -5,14 +5,36 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Azure/aks-mcp/internal/auth"
 	"github.com/Azure/aks-mcp/internal/security"
 	"github.com/Azure/aks-mcp/internal/telemetry"
 	"github.com/Azure/aks-mcp/internal/version"
 	flag "github.com/spf13/pflag"
 )
+
+// EnableCache controls whether caching is enabled globally
+// Cache is enabled by default for production performance
+// This affects both web cache headers and AzureOAuthProvider cache
+// Can be disabled via DISABLE_CACHE environment variable
+var EnableCache = os.Getenv("DISABLE_CACHE") != "true"
+
+// validateGUID validates that a value is in valid GUID format
+func validateGUID(value, name string) error {
+	if value == "" {
+		return nil // Empty values are allowed (will be handled by OAuth validation)
+	}
+
+	// GUID pattern: 8-4-4-4-12 hexadecimal digits with hyphens
+	guidRegex := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	if !guidRegex.MatchString(value) {
+		return fmt.Errorf("%s must be a valid GUID format (e.g., 12345678-1234-1234-1234-123456789abc), got: %s", name, value)
+	}
+	return nil
+}
 
 // ConfigData holds the global configuration
 type ConfigData struct {
@@ -22,6 +44,8 @@ type ConfigData struct {
 	CacheTimeout time.Duration
 	// Security configuration
 	SecurityConfig *security.SecurityConfig
+	// OAuth configuration
+	OAuthConfig *auth.OAuthConfig
 
 	// Command-line specific options
 	Transport   string
@@ -51,6 +75,7 @@ func NewConfig() *ConfigData {
 		Timeout:         60,
 		CacheTimeout:    1 * time.Minute,
 		SecurityConfig:  security.NewSecurityConfig(),
+		OAuthConfig:     auth.NewDefaultOAuthConfig(),
 		Transport:       "stdio",
 		Port:            8000,
 		AccessLevel:     "readonly",
@@ -66,8 +91,22 @@ func (cfg *ConfigData) ParseFlags() {
 	flag.StringVar(&cfg.Host, "host", "127.0.0.1", "Host to listen for the server (only used with transport sse or streamable-http)")
 	flag.IntVar(&cfg.Port, "port", 8000, "Port to listen for the server (only used with transport sse or streamable-http)")
 	flag.IntVar(&cfg.Timeout, "timeout", 600, "Timeout for command execution in seconds, default is 600s")
+
 	// Security settings
 	flag.StringVar(&cfg.AccessLevel, "access-level", "readonly", "Access level (readonly, readwrite, admin)")
+
+	// OAuth configuration
+	flag.BoolVar(&cfg.OAuthConfig.Enabled, "oauth-enabled", false, "Enable OAuth authentication")
+	flag.StringVar(&cfg.OAuthConfig.TenantID, "oauth-tenant-id", "", "Azure AD tenant ID for OAuth (fallback to AZURE_TENANT_ID env var)")
+	flag.StringVar(&cfg.OAuthConfig.ClientID, "oauth-client-id", "", "Azure AD client ID for OAuth (fallback to AZURE_CLIENT_ID env var)")
+
+	// OAuth redirect URIs configuration
+	additionalRedirectURIs := flag.String("oauth-redirects", "",
+		"Comma-separated list of additional OAuth redirect URIs (e.g. http://localhost:8000/oauth/callback,http://localhost:6274/oauth/callback)")
+
+	// OAuth CORS origins configuration
+	allowedCORSOrigins := flag.String("oauth-cors-origins", "",
+		"Comma-separated list of allowed CORS origins for OAuth endpoints (e.g. http://localhost:6274). If empty, no cross-origin requests are allowed for security")
 
 	// Kubernetes-specific settings
 	additionalTools := flag.String("additional-tools", "",
@@ -113,6 +152,12 @@ func (cfg *ConfigData) ParseFlags() {
 	cfg.SecurityConfig.AccessLevel = cfg.AccessLevel
 	cfg.SecurityConfig.AllowedNamespaces = cfg.AllowNamespaces
 
+	// Parse OAuth configuration
+	if err := cfg.parseOAuthConfig(*additionalRedirectURIs, *allowedCORSOrigins); err != nil {
+		fmt.Printf("OAuth configuration error: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Parse additional tools
 	if *additionalTools != "" {
 		tools := strings.Split(*additionalTools, ",")
@@ -120,6 +165,96 @@ func (cfg *ConfigData) ParseFlags() {
 			cfg.AdditionalTools[strings.TrimSpace(tool)] = true
 		}
 	}
+}
+
+// parseOAuthConfig parses OAuth-related command line arguments
+func (cfg *ConfigData) parseOAuthConfig(additionalRedirectURIs, allowedCORSOrigins string) error {
+	// Note: OAuth scopes are automatically configured to use "https://management.azure.com/.default"
+	// and are not configurable via command line per design
+
+	// Track configuration sources for logging
+	var tenantIDSource, clientIDSource string
+
+	// Load OAuth configuration from environment variables if not set via CLI
+	if cfg.OAuthConfig.TenantID == "" {
+		if tenantID := os.Getenv("AZURE_TENANT_ID"); tenantID != "" {
+			cfg.OAuthConfig.TenantID = tenantID
+			tenantIDSource = "environment variable AZURE_TENANT_ID"
+			log.Printf("OAuth Config: Using tenant ID from environment variable AZURE_TENANT_ID")
+		}
+	} else {
+		tenantIDSource = "command line flag --oauth-tenant-id"
+		log.Printf("OAuth Config: Using tenant ID from command line flag --oauth-tenant-id")
+	}
+
+	if cfg.OAuthConfig.ClientID == "" {
+		if clientID := os.Getenv("AZURE_CLIENT_ID"); clientID != "" {
+			cfg.OAuthConfig.ClientID = clientID
+			clientIDSource = "environment variable AZURE_CLIENT_ID"
+			log.Printf("OAuth Config: Using client ID from environment variable AZURE_CLIENT_ID")
+		}
+	} else {
+		clientIDSource = "command line flag --oauth-client-id"
+		log.Printf("OAuth Config: Using client ID from command line flag --oauth-client-id")
+	}
+
+	// Validate GUID formats for tenant ID and client ID
+	if err := validateGUID(cfg.OAuthConfig.TenantID, "OAuth tenant ID"); err != nil {
+		return fmt.Errorf("invalid OAuth tenant ID from %s: %w", tenantIDSource, err)
+	}
+
+	if err := validateGUID(cfg.OAuthConfig.ClientID, "OAuth client ID"); err != nil {
+		return fmt.Errorf("invalid OAuth client ID from %s: %w", clientIDSource, err)
+	}
+
+	// Set redirect URIs based on configured host and port
+	if cfg.OAuthConfig.Enabled {
+		redirectURI := fmt.Sprintf("http://%s:%d/oauth/callback", cfg.Host, cfg.Port)
+		cfg.OAuthConfig.RedirectURIs = []string{redirectURI}
+
+		// Add localhost variant if using 127.0.0.1
+		if cfg.Host == "127.0.0.1" {
+			localhostURI := fmt.Sprintf("http://localhost:%d/oauth/callback", cfg.Port)
+			cfg.OAuthConfig.RedirectURIs = append(cfg.OAuthConfig.RedirectURIs, localhostURI)
+		}
+
+		// Add additional redirect URIs from command line flag
+		if additionalRedirectURIs != "" {
+			additionalURIs := strings.Split(additionalRedirectURIs, ",")
+			for _, uri := range additionalURIs {
+				trimmedURI := strings.TrimSpace(uri)
+				if trimmedURI != "" {
+					cfg.OAuthConfig.RedirectURIs = append(cfg.OAuthConfig.RedirectURIs, trimmedURI)
+				}
+			}
+		}
+	}
+
+	// Parse allowed CORS origins for OAuth endpoints
+	if allowedCORSOrigins != "" {
+		log.Printf("OAuth Config: Setting allowed CORS origins from command line flag --oauth-cors-origins")
+		origins := strings.Split(allowedCORSOrigins, ",")
+		for _, origin := range origins {
+			trimmedOrigin := strings.TrimSpace(origin)
+			if trimmedOrigin != "" {
+				cfg.OAuthConfig.AllowedOrigins = append(cfg.OAuthConfig.AllowedOrigins, trimmedOrigin)
+			}
+		}
+	} else {
+		log.Printf("OAuth Config: No CORS origins configured - cross-origin requests will be blocked for security")
+	}
+
+	return nil
+}
+
+// ValidateConfig validates the configuration for incompatible settings
+func (cfg *ConfigData) ValidateConfig() error {
+	// Validate OAuth + transport compatibility
+	if cfg.OAuthConfig.Enabled && cfg.Transport == "stdio" {
+		return fmt.Errorf("OAuth authentication is not supported with stdio transport per MCP specification")
+	}
+
+	return nil
 }
 
 // InitializeTelemetry initializes the telemetry service
