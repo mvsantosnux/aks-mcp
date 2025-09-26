@@ -22,66 +22,9 @@ helm install my-aks-mcp . --namespace aks-mcp --create-namespace
 
 ## Configuration
 
-### Basic Configuration
+For detailed configuration parameters, see [helm-chart.md](./helm-chart.md).
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `image.repository` | Container image repository | `ghcr.io/azure/aks-mcp` |
-| `image.tag` | Container image tag | `""` (uses chart appVersion) |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-
-### Application Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `app.transport` | Transport mechanism (stdio, sse, streamable-http) | `streamable-http` |
-| `app.port` | Port to listen on | `8000` |
-| `app.accessLevel` | Access level (readonly, readwrite, admin) | `readonly` |
-| `app.timeout` | Command execution timeout in seconds | `600` |
-| `app.verbose` | Enable verbose logging | `false` |
-| `app.cache` | Enable cache for better performance | `true` |
-
-### Azure Authentication
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `azure.existingSecret` | Use existing secret for Azure credentials | `""` |
-| `azure.tenantId` | Azure tenant ID | `""` |
-| `azure.clientId` | Azure client ID | `""` |
-| `azure.clientSecret` | Azure client secret | `""` |
-| `azure.subscriptionId` | Azure subscription ID | `""` |
-
-### OAuth Configuration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `oauth.enabled` | Enable OAuth authentication | `false` |
-| `oauth.tenantId` | Azure AD tenant ID for OAuth | `""` |
-| `oauth.clientId` | Azure AD client ID for OAuth | `""` |
-| `oauth.redirectURIs` | Custom redirect URIs | `[]` |
-| `oauth.corsOrigins` | Custom CORS origins | `[]` |
-
-### Additional Configuration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `config.additionalTools` | Additional Kubernetes tools (helm, cilium, hubble) | `[]` |
-| `config.allowNamespaces` | Allowed Kubernetes namespaces (empty means all) | `[]` |
-| `config.cacheTimeout` | Cache timeout | `"60s"` |
-| `kubeconfig.enabled` | Enable kubeconfig secret mount | `false` |
-| `kubeconfig.secretName` | Name of kubeconfig secret | `"kubeconfig"` |
-
-### Security Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `rbac.create` | Create RBAC resources | `true` |
-| `serviceAccount.create` | Create service account | `true` |
-| `serviceAccount.annotations` | Service account annotations | `{}` |
-| `podSecurityContext.runAsNonRoot` | Run as non-root user | `true` |
-| `securityContext.readOnlyRootFilesystem` | Enable read-only root filesystem | `true` |
-
-## Examples
+## Deployment Examples
 
 ### Basic Readonly Deployment
 ```bash
@@ -123,6 +66,32 @@ helm install my-aks-mcp . \
   --set config.additionalTools="{helm,cilium,hubble}" \
   --set config.allowNamespaces="{kube-system,default}" \
   --set azure.existingSecret=azure-credentials
+```
+
+### Deployment with Ingress Support
+
+#### Basic Ingress Deployment
+```bash
+helm install my-aks-mcp . \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=aks-mcp.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
+  --set azure.existingSecret=azure-credentials
+```
+
+#### Azure App Routing with OAuth
+```bash
+# Enable Azure App Routing on your AKS cluster first
+az aks approuting enable \
+    --resource-group your-resource-group \
+    --name your-cluster-name
+
+# Deploy with Azure App Routing configuration
+helm install my-aks-mcp . \
+  -f values-mcp-inspector-azure-approuting.yaml \
+  --namespace aks-mcp \
+  --create-namespace
 ```
 
 ## Development and Testing
