@@ -1,0 +1,9 @@
+Josue Vidal
+21:18
+1- Criar o Resource Group az aks create --resource-group myResourceGroup --name myAKSCluster --generate-ssh-keys 
+2- Criar o AKS az aks create --resource-group myResourceGroup --name myAKSCluster --generate-ssh-keys 
+3- Conectar no Cluster AKS az aks get-credentials --resource-group myResourceGroup --name myAKSCluster 
+4- Deploy da Aplicaçao kubectl create ns pets kubectl apply -f https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/main/aks-store-all-in-one.yaml -n pets 
+5-Validaçao da Aplicação Frontend http://48.223.223.168/ Admin http://134.33.242.224/ 
+6 - Cria o Azure OpenAI Get- https://imersaocloudexpert.openai.azure.com 
+7- Criar a Microservices de AI kubectl apply -f ai-service.yaml
