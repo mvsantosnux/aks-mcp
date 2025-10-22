@@ -40,17 +40,29 @@ Como a minha conta é nova e não possui nenhuma configuração previa, é neces
 	                    "virtualNetworkPeerings": []
 	                  }
 	                }
-A propria CLI da Azure criou e registrou o sercido Microsoft.Network
+A propria CLI da Azure criou e registrou o sercido Microsoft.Network, agora é hora de criar o AKS
     
-        🔹 b. Azure Kubernetes Service (AKS)
-        bash
-        az aks create \
-          --resource-group myResourceGroup \
-          --name myAKSCluster \
-          --node-count 3 \
-          --enable-addons monitoring \
-          --enable-aad \
-          --generate-ssh-keys
+        🔹 b. Azure Kubernetes Service (AKS) no bash
+Antes de seguir com a configuração do AKS, foi verificado se o recurso estava registrado com o seguinte comendo:
+
+				
+				az provider register --namespace Microsoft.ContainerService
+				#como não estava registrado o sistema jpa registrou:
+				#Registering is still on-going. You can monitor using 'az provider show -n Microsoft.ContainerService'
+
+				
+antes de criar o AKS foi necessario registrta o recurso Microsoft.OperatioanlInsigths com o seguinte comando:
+				
+				az provider register --namespace Microsoft.OperationalInsights
+ai sim é possivel criar o aks
+
+		        az aks create \
+		          --resource-group myResourceGroup \
+		          --name myAKSCluster \
+		          --node-count 3 \
+		          --enable-addons monitoring \
+		          --enable-aad \
+		          --generate-ssh-keys
           
         🔹 c. Container Registry
         bash
