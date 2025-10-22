@@ -10,21 +10,51 @@
     Git
 
 ☁️ 2. Provisionamento da Infraestrutura
-    🔹 a. Rede Virtual (VNet)
-    bash
-    az network vnet create --name myVNet --resource-group myResourceGroup --address-prefix 10.0.0.0/16
-    🔹 b. Azure Kubernetes Service (AKS)
-    bash
-    az aks create \
-      --resource-group myResourceGroup \
-      --name myAKSCluster \
-      --node-count 3 \
-      --enable-addons monitoring \
-      --enable-aad \
-      --generate-ssh-keys
-    🔹 c. Container Registry
-    bash
-    az acr create --resource-group myResourceGroup --name myACR --sku Basic
+
+        🔹 a. Rede Virtual (VNet)
+        bash
+        az network vnet create --name myVNet --resource-group myResourceGroup --address-prefix 10.0.0.0/16
+
+Como a minha conta é nova e não possui nenhuma configuração previa, é necessarioo criar uma VNet criada, foi preciso criar para seguir com a implementação, apos o comando tive a seguinte resposta:
+
+	                Resource provider 'Microsoft.Network' used by this operation is not registered. We are registering for you.
+	                Registration succeeded.
+	                {
+	                  "newVNet": {
+	                    "addressSpace": {
+	                      "addressPrefixes": [
+	                        "10.0.0.0/16"
+	                      ]
+	                    },
+	                    "enableDdosProtection": false,
+	                    "etag": "W/\"79e32fb5-e601-42f7-9826-fd0acf28cf60\"",
+	                    "id": "/subscriptions/0b79cfe7-b320-4274-8ff1-ef43fbedccd8/resourceGroups/myResourceGroup/providers/Microsoft.Network/virtualNetworks/myVNet",
+	                    "location": "eastus",
+	                    "name": "myVNet",
+	                    "privateEndpointVNetPolicies": "Disabled",
+	                    "provisioningState": "Succeeded",
+	                    "resourceGroup": "myResourceGroup",
+	                    "resourceGuid": "5e9432cb-a85f-4d4a-9437-7b5e8d48f857",
+	                    "subnets": [],
+	                    "type": "Microsoft.Network/virtualNetworks",
+	                    "virtualNetworkPeerings": []
+	                  }
+	                }
+A propria CLI da Azure criou e registrou o sercido Microsoft.Network
+    
+        🔹 b. Azure Kubernetes Service (AKS)
+        bash
+        az aks create \
+          --resource-group myResourceGroup \
+          --name myAKSCluster \
+          --node-count 3 \
+          --enable-addons monitoring \
+          --enable-aad \
+          --generate-ssh-keys
+          
+        🔹 c. Container Registry
+        bash
+        az acr create --resource-group myResourceGroup --name myACR --sku Basic
     
 🧱 3. Implementação dos Componentes da Aplicação
     🔹 a. CI/CD com Azure Pipelines
